@@ -1,0 +1,389 @@
+PRIOR TO 12/13
+
+v1
+
+First version of the code has been built following a similar architecture to Gibianksy. A simulation environment has been coded and a very rudimentary PD controller is now functional.
+
+16/12/13
+
+v3.
+
+Have reconfigured the way the graphs are created so that I now get a plot of velocity, displacement, angular velocity and angular displacement when I run the simulator.
+
+When using PD control, small steady state errors are visible in the angular displacements. These generate a steady state error in the lienar velocity as the thrust vector is not perfectly vertical. This causes very large errors in displacement that grow linearly over time. Setting the simulation time to t=90s demonstrates this. 
+
+An integral gain parameter should be introduced to eliminate the error.
+
+v4.
+I am attempting to design SISO controllers to govern the linear velocity and displacement of the quadcopter. 
+
+I have confirmed that the roll angle, phi, governs motion in the y direction and the pitch angle, theta, governs motion in the x direction. This was done by setting these angles (in separate simulations) equal to pi/4 and then seeing which direction this orientation generates linear velocity in.
+
+The linear controllers are to govern the desired roll and pitch angles. If these angles are kept proportional to the error in their respective linear directions then as the error grows the angle will grow and as the error shrinks the angle will shrink. A limit of 45degrees has been set on both angles.
+
+These linear controllers are currently quite useless. Any effect that they do have is to exaggerate the errors. Bizarrely, velocity still seems to reach a steady state very quickly. This is either as the the limit of 45degrees is met and never retreated from or because the controller actually doing nothin
+g.
+
+I have plotted graphs of roll and pitch angles against y and x coordinates respectively as well as plotting both against time. I had hoped that this would reveal some change in input when the desired coordinates were passed over (x=5,y=5) but there is nothing. It appears that the limit of pi/4 is quickly reached, this generates steady linear velocities in the x and y directions (curiously not the same velocity. In the x direction roughly 20m/s, in the y direction roughly -30m/s).
+
+There is no variation in phi_des or theta_des with either time or coordinate.
+
+There is some variation in the results when different desired coordinates are entered. For (x=1,y=1) the steady state velocities were lower. The plot of the desired pitch angle is not a flat line but a curve that reach steady state. Roll is still a flat line. Why the discrepency?? They should be identical in every way. 
+
+The strangest results are for (x=0,y=0) where the plots of desired roll and pitch angles loop back over themselves back to zero. 
+
+Possibly plotting the desired roll and pitch angles against the x and y errors would be more revealing.
+
+17/12/13
+
+Attempting to plot desired roll and pitch angles against error has revealed a problem in the code which may be the reason why the linear velocity controllers are not functioning. The error is currently always equal to the desired coordinate. This then revealed that the position array is not functioning and is always set to (0,0,0). 
+
+There may be a problem with the ~isfield function used by Gibianksy. I will try creating the position array in the simulator code and then augmenting it in the controller code each time it is run through the for-loop.
+
+Have corrected the position array problem, not with the above method. Instead simply augmented the controller_params structured array to include the position vector from the simulator code. This has worked and an accurate error array is now available.
+
+Controllers are still not working as desired. Strangest result is the disimilarity between the effects of the controllers on roll and pitch despite them being identical motions just about different axes. 
+
+Currently a positive error generates a positive pitch angle which may have just been reinforcing the error. The asymmetry between x and y motion seems to be in part due to the fact that a positive roll angle generates a negative y motion whereas a positive pitch angle generates a positive x motion. I therefore need to use opposite signs in the controllers.
+
++ve roll ------> -ve y motion
++ve pitch -----> +ve x motion
+
+I therefore want +ve Kp_x and -ve Kp_y. The controller now drives the velocities to zero and therefore the displacements reach a steady state but not the desired coordinates! 
+
+Fiddling with the Kp and Kd values and now the displacements settle closer (but not exactly on) the desired values. The y velocity oscillates much more for some reason.
+
+Works roughly for (5,5) and (10,10) need to experiment with more coordinates -- but it works!
+
+Perhaps the steady state errors could be eliminated just by introducing an integral gain parameter. 
+
+An attempt to use larger coordinates (100,100) failed. (20,20) worked as did (50,50) and (80,80). Using (80,80) was the first time that the angles reached the maximum (pi/4) which maybe indicates that the Kp values could be higher. Another attempt at using (100,100) was successful. It seems as though the steady state error gets smaller as the coordinates get higher - it is more likely that the steady state error remains approximately constant and that the scale of the axes changing creates this impression.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+NEED TO DO:
+
+*I have noticed that sometimes the velocities of the quadcopter reach completely unrealistic levels (e.g. 150m/s). Maximum values should be set for the rotors angular velocities.
+
+*Reassess the maximum pitch and roll angles as pi/4 rad (45deg) may be too high.
+
+*Find out why the y-velocity (and therefore displacement) oscillates so much more than the x-velocity and solve this problem.
+
+*Find better values for the gain parameters of the linear velocity controllers.
+
+*Augment every controller with an integral gain parameter.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Values above 100 as desired coordinates cause the program to fail.
+
+I had previously only set a maximum for positive pitch and roll angles, this has now been remedied so that there is also a maximum for negative angles. This may obviate the need to reassess the max pitch and roll angles as the large rotations observed were probably negative. Testing this, it seems to have removed alot of the very erratic oscillations in velocity. Larger coordinates can now be used without failure: (150,150) worked fine as did (300,300).
+
+Although velocities are still quite high, since they have been properly capped the maximum is around 30m/s. This is far better than the values of 150m/s previously obtained.
+
+The linear velocity controllers have driven the error in the angular displacements for roll and pitch down to around 5e-5 (otherwise there would be a significant velocity component in the x and y directions). A larger steady state error for yaw still exists. A PID controller would still be preferable.
+
+The disparity between x and y motion responses can be seen even in the plot of desired roll and pitch angles against y and x coordinates respectively. The plot of desired roll angle against y-coordinate loops around itself in a spiral whose centre lies on the desired y-coordinate. The plot of the desired pitch angle against x-coordinate is a much smoother curve and only loops a tiny amount at the end, just over the desired x value.
+
+It would be good find the reason why:
+
+
++ve roll ------> -ve y motion
++ve pitch -----> +ve x motion
+
+As it shows up on the graphs and is confusing.
+
+I am now running the code with no initial disturbance so that consistent results may be obtained. Additionally, the desired x and y coordinates are set to an equal value (50,50).
+
+I have now set Kp_y to approximately one third the value of Kp_x. Reducing the values of these parameters reduces oscillation. Now the performance in the x direction is actually much better than in the y direction with a rise time of around 10s less to reach (50,50) from (0,0).
+
+18/12/13
+
+Have set Kp_y equal to roughly 1.5x Kp_x
+
+The source of asymmetry has been found! The sign of Kd_y also had to be reversed for some reason.
+
+Despite the method used by Omari, a much better response is obtained if you use a positive Kd_x value (negative Kd_Y, so that they are the same sign as their corresponding Kp values).
+
+An idea has struck me for being able to control motion in the z direction (altitude). The thrust term in the equations that give the propeller angular velocities simply needs to be made proportional to the errors.
+
+Currently the z controller is not working. 
+
+I have created a graph that plots the thrust agaisnt both time and z-coordinate. When I run the code for the fixed z-coordinate I can see that to keep the quadcopter aloft thrust in the region of 1.75e6 N is required. Therefore to gain altitude the thrust will have to rise above this value.
+
+For some reason the quadcopter is sinking fast (going into negative displacement in the z-direction) and then the z-velocity is approaching zero. For a z-des of 50 the quadcopter is reaching a steady state at around -200. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+To Do
+*Fix z-controller
+*Make into a PID controller
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Does a +ve z_des drive the qcopter to a -ve z-coordinate? It goes to a -ve displacement whether z_des is +ve or -ve but when it is +ve the displacement is negative and with a greater magnitude.
+
+
+ANother curiosity is that the z velocity is always driven to zero which suggests that the controller thinks that the error in the z direction is driven to zero. Why this is happening at z=-50 when z_des=50 is unclear.
+
+Here is a table of the steady state z values compared to the z_des value inputted, using Kp_z=20000 and Kd_z=16000 (N.B. the initial z value is 10 so that the quadcopter is airborne. Additionally, the desired x and y values are (50,50)):
+
+z_des		z_ss
+______________________
+0		-80
+10		-70
+20		-60
+30		-50
+40		-40
+
+100		20
+
+So far a pattern can be established that the controller will have the quadcopter settle at z=z_des-80. I have also verified that altering the desired x and y coordinates has no bearing on the steady state z value. Now negative values of z_des will be examined:
+
+z_des		z_ss
+______________________
+-10		--20		-100
+
+-100		-180
+
+Therefore the pattern is continued for -ve values of z_des. This suggests that there isn't a problem with the quadcopter interpreting thrust in the wrong direction and  accelerating towards the floor. The error of -80 could even be compensated for by simply adding 80 to the thrust controller output but this would be a dissatisfactory solution. 
+
+The problem may be with the code that computes error in the z direction. I shall plot a graph of error against z-coordinate for z-des. If the error code is functioning correctly then a straight line of gradient 1 that passes through the x-axis at z_des is expected.
+
+This error graph has been plotted and confirmed that the error code is functioning correctly. 
+
+Not that this is the problem but up until now negative thrusts have been possible which I have now eliminated by setting thrust = 0 if thrust<0
+
+Changing the Kp and Kd values for the z controller have a significant impact on the steady state error and the oscillations. Higher Kd increases the oscilliatory nature of the response, increasing Kp seems to decrease steady state error.
+
+There must be something wrong as even using Kp_z=320000 (and Kd_z=6000) 
+I am only getting just above z=40 for z_des=50. 
+
+Using Kp=1,000,000 gets the correct steady state displacement but there is a huge initial spike in z-velocity and subsequent oscillation.
+
+Using a massive negative Kd value eliminates the oscillation, using Kp=1M and Kd=-1M gives a very good response. It is strange that such large numbers are involved. Perhaps that is due to the fact that the controller governs the thrust produced by the rotors rather than the angular velocity or something that would have smaller values. 
+
+However, a functioning PD controller now exists for motion along all three axes! Any user can put in a spatial coordinate and a heading (yaw angle) and the quadcopter will dutifully obey.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+TO DO LIST
+
+*Improve the user interface so that a user can input coordinates and a heading as arguments to one of the functions with default valeus set if the user chooses not to.
+
+*Make a PID controller. 6 integral gain parameters will be necessary.
+
+*Consider writing some code that will introduce random disturbances. These could be randomised forces or moments (most probably both) that act at random time intervals.
+
+*Code could be written to plot the path of the quadcopter in three dimensions. This would not be difficult in of itself as the position vector is already stored as an array but I cannot currently think of any way of representing time on the graph.
+
+*Some of the graphs used in controller design can probably be deactivated now, although they should not be deleted as they will be useful for making new controllers and for the report.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+CREATING A 3D PLOT OF THE PATH
+
+Plot created in a separate function. Axis labels are currently not showing. 
+
+The plot shows that the movement in the z direction is much more rapid than in the x or y directions. 
+
+Axis labels are now working and I have put the code into the grapher function so that all graphs are run by one function.
+
+It might be possible quadcopter trace itself out in real time with some kind of clock visible on the plot to show the path of the quadcopter in 4 dimensions.
+
+I have made a plot that updates with time however it needs improvement in a few ways:
+-I need to make the rate that the graph updates equal to actual time
+-Currently the quadcopters position is represented by a marker that moves along 3 axes. I would like this marker to also trace out a line
+-Find a way of altering the marker (may even be possible to customise?)
+-A clock should be showing, whether passage of time is correct or not.
+
+20/12/13
+
+3D plot now working well, a marker moves over the quadcopters position, the path is traced out by a dotted line and the time is given by a counter at the top.
+
+-Could add a legend that shows the coordinates
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+PID CONTROLLER
+The integral terms should be calculated in the forloop by integral=integral+dt*errors
+
+PID controllers are probably unnecessary for the orientation angles as there is no steady state error there as it is already eliminated by the velocity controllers.
+
+I will start by augmenting the y-controller with an integral gain parameter. The y motion PID is currently not working and causes the quadcopter's path to go very badly wrong.
+
+There is no point in having the gain parameters as arguments of the controller function now that there are so many of them, I will move them into the body of the code.
+
+I have updated the path plot so that the final position is displayed on the graph. This shows that there is no steady state erro in the x or y directions, only in the z direction. Given that steady state errors are not a problem for roll and pitch either, it seems that only two integral gain parameters are required -- for yaw and z-displacement.
+
+I also need to establish whether altering the heading (yaw angle) of the quadcopter disrupts the linear velocity controllers. There is every reason to suppose that it will, so I may have to take it out -- Have tested it and it does ruin things. 
+
+21/12/13
+
+The z PID controller now seems to work. The z displacement is driven perfectly to z=z_des=100. However it does cause a large oscillation before settling down to z_des. This may be corrected by increasing Kd_z or by reducing Ki_z as much as possible.
+
+The response is now excellent from the quadcopter with a much more natural path. There is still a slightly oscialliatory motion as the quadcopter reaches its final position. I have so far been unable to reduce this by fiddling with the gain parameters but a more systematic attempt should be made. If it is impossible then the oscillation is unimportant anyway.
+
+I am going to reinstate the initial disturbance to see how this affects the controller performance.
+
+The initial disturbance has a large impact on the controller performance, causing significant steady state errors for yaw, x and y. It causes the flight path to become significantly distorted. My current theory which I believe to be accurate is that the errors and the warped flight path stem from the small steady state error in the yaw displacement. The linear motion controllers in the x and y directions operate on the assumption that propellers 1 and 3 generate a roll moment that causes motion purely in the y direction and propellers 2 and 4 generate a pitch moment that causes motion purely in the x direction. If the yaw angle is not driven to zero then rolling and pitching will generate motions that each have both x and y components. If I am correct then the strange behaviour of the quadcopter should be eliminated.
+
+Unfortunately, cannot make the psi PID controller work.
+
+***
+Another idea has struck me that it should be relatively simple to record the 'settling time' of the system which will be the time taken for three conditions to be met:
+
+0.99x_des<x<1.01x_des
+0.99y_des<y<1.01y_des
+0.99z_des<z<1.01z_des
+
+Though this could be done in the controller code, it might be better practice to move the desired coordinate arguments into the simulator code and then compute the settling time from 
+***
+
+Tweaking the gain parameters in the PD controller I have discovered that the reduction in the oscilliatory nature of the response was not due to the introduction of the integral gain parameter. It was due to the larger value of Kd_z. In fact, the PID controller exhibits a more oscilliatory response though with no SS errors.
+
+***
+Also some of the lines necessary in the simulator code to run the PID controller don;t work when running the PD controller. I need away of deactivating lines depending on the controller used.
+
+I have added in code to compute the settling time (currently time taken to fall between the range of 0.98-01.02 times the desired coordinates). It appears on the graph of the path and in the results structured array.
+
+It is now clear to see that the PD controller performs with significantly lower settling times although this comes at the cost of steady state errors.
+
+***
+
+22/12/13
+I believe it should be possible to have the controller run as a PD controller and then 'switch' to PID control when it is within some defined percentage of the desired coordinates. There will be difficulty when the desired coordinates are very low balues as then the SS errors will be a larger percentage and then the controller may never switch to PID control. It may be possible to have the quadcopter switch when it is within some distance of every desired coordinate. This can be experimented with once the PID controller is finished.
+
+I have created an initial disturbance of 0.3 rad/s about each euler angle so that uniform results can be obtained. It currently seems that the PID controller actually generates a greater SS error than the PD controller.
+
+I am using trial and error to find a value of Ki_psi that drives the SS error down to zero. Increasing the disturbance causes larger SS errors therefore the PID controller is not functioning as desired.
+
+When going to larger coordinates such as (300,300,300) there is still an SS error in z displacement. Putting up the Ki_z value has reduced SS error and dramatically reduced settling time.
+
+I have put in PID controllers for x and y motion. There are now PIDs for x,y,z and yaw. Roll and pitch are apparently unnecessary. x and y controllers are not yet working perfectly.
+
+23/12/13
+
+Controllers for x and y need to be fine tuned. I have tweaked them quite a bit and cannot get the desired results. I may need to examine the integral arrays to make sure everything is functioning correctly.
+
+26/12/13
+
+The y integral is negative and the x integral is positive. I have altered this so that both are negative. I have another asymmetry problem now as x and y motion are not identical. I will turn off disturbances and try and find the source of the problem. Disturbances are off but asymmetry still exist.
+
+x is working well, y isn't.
+
+Turned simulation time up to allow steady state to mature. x and y both reach exact values given enough time if disturbances are off. Initial disturbance is now on, the same every time. Aiming at [300,300,300].
+
+PD controller gets to: [298.5,301.1,298.6]
+
+PID gets to: [295.9,299.1,300]
+
+Therefore currently the PID controller is working perfectly on z, OK on y and badly on x. x and y should be the same...
+
+Adjusted it so that pid now gives: [301.1,299.1,300]
+
+And now [300.3,300,300]
+
+The PID controller now consistently outperforms the PD controller but the movement is slightly more oscillatory. The Kd parameters in the PID controller could be fiddled with to correct this.
+
+Small coordinates are still a problem as SS errors are not completely eradicated and they show up more on small coordinates. The SS errors are larger around smaller coordinates as well.
+
+There is a problem in that if there is no disturbance then the PD controller has no x or y SS errors whereas the PID controller has small SS errors. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Now that there is a (mostly) functioning PID controller, there are a couple of ways to proceed:
+
+TO DO
+___________________________________
+*Tweak gain parameters (particularly the Kd values) to smooth out the path curve.
+
+*Find a better way of presenting the updating path curve. It may be possible to customise the marker so that an image of a quadcopter could be used. Ideally a 3d object could be created and then the orientation of the quadcopter could also be shown.
+
+*I would then like to implement some kind of code (fuzzy logic?) such that the PID controller would behave differently in different situations. Different Ki values could be used for different ranges of coordinates to try and eliminate more SS errors. When the quadcopter needs to maintain its altitude then the existing equation for thrust could be used. 
+
+*Modify the grapher code such that it only goes for 10s longer than the settling time. (and while I'm at it I may as well change all of the 'settling's to 'rise's given that it is actually a rise time that I am using.
+
+*Try and modify the way that the updating path plot is coded so that it can be rotated while it is being drawn.
+
+*Find source of asymmetry between x and y motion
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+9/2/14
+
+I am trying to make the simulation time only 10s longer than the rise time. This has, in effect, been achieved but the simulation always ends with an error. This is because the matrices have a size that is determined by the original simulation time (currently 180s). After the simulation time is cut down, the matrices are then the wrong size.
+
+The code seems to have only worked once and now does nothing... And now it works again having changed nothing.
+
+I am going to implement this in a different way - the simulation time will not be trimmed but the grapher will only plot up to the point 10 seconds after the rise time.
+
+This code now works perfectly but it has 2 problems: it currently stops at the rise time whereas I would like it to run 10s after. There will also be issues if it never comes within the definition of the rise time, i.e. quadcopter position is never within 2% of desired coordinates. I have confirmed that this is an issue by running for small desired coordinates (where the rror will be high), the grapher does not start.
+
+I am working on addign a 10s buffer but it is not currently working.
+
+It now works but there will still be an issue when rise time conditions are not met.
+
+It now works for all cases, when rise time conditions are not met the simulation runs for a default time of 180s.
+
+****************
+
+22/02/14
+
+THINGS TO PUT IN DISS
+
+*3D visualization -- mention the path plot and then the updating path plot. ways to improve it? it is currently not interactive in anyway, probably impossible to implement but could mention it as an area of improvement.
+
+*Transfer function from PID equation, look at dynamics and control notes and see what they say about it.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Need to get results.
+
+*write code that will run the simulation 500 times for some randomised disturbance.
+
+*have it take the average of each spatial coordinate, each orientation, each velocity and each angular velocity. 
+
+*plot mean results
+
+A program has been made that will run the simulator as many times as desired. a new function 'meansimulate' is being used that does not call the grapher function.
+
+In the for loop that's calling the simulation, the results should be stored.
+
+I have now written a scipt that will plot the mean results. I have obtained images for the mean results of 500 simulations.
+
+I am now adding in the ability to plot results of all of the simulations so that the variation can be viewed. 
+
+Difficulty getting the legend to display accurately. This issue has been resolved by a slightly cumbersome method.
+
+Everything is working, results can now be obtained!
+
+25/02/14
+
+In the diss I should include a section on the validity of the simulation -- use applied aero notes.
+
+26/02/14
+
+I am now writing code that will collect results from a range of different numbers of simulations to show that the 'mesh size' (in this case the number of times the simulation is run) is fine enough to give mean rise times that do not vary.
+
+For some reason the code isn't plotting the path plot for the last iteration.
+
+This has now been resolved. Results are still being buggered by the fact that the rise time code doesn't seem to be working properly.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+MATLAB tutorial issues to resolve:
+
+*Bug relating to rise time -- often MATLAB doesn't register the rise time even when the quadcopter position falls within the rise time margins. RESOLVED
+
+*Use MATLAB to generate controllers
+
+*Asymmetry between x and y motion
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+27/02/14
+
+Am obtaining results and plottign graphs to try and validate results. Would be useful to work out how to have base 2 semi-logarithmic axes.
+
+Need to obtain transfer function in order to use simulink to create new controllers.
+
+11/03/14
+
+Need to put Ki parameters into roll and pitch controllers.
+
+
+
+
+

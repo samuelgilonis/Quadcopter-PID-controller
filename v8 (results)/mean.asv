@@ -1,0 +1,17 @@
+%This script is to run the simulation multiple times in order to gather
+%mean results.
+
+function m = mean()
+    numsim=5;
+    %numsim is the number of times the simulation is to be run
+    x=[];
+    for n=1:numsim;
+        result=meansimulate(PID);
+        x(1,:)=result.x(1,
+    end
+    
+    
+    
+        
+    
+    

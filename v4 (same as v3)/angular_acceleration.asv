@@ -1,0 +1,58 @@
+function omegadot = angular_acceleration(inputs,omega,I,L,b,k)
+
+    i1=inputs(1);
+    i2=inputs(2);
+    i3=inputs(3);
+    i4=inputs(4);
+    
+    actuator_action = [
+        L*k*(i1-13)
+        L*k*(i2-i4)
+        b*(i1-i2+i3-i4)
+        ];
+    
+    dragtorque=[
+        0;
+        0;
+        b*(i1-i2+i3-i4);
+        ];
+    
+    tau = [
+        L*k*(i1-i3)
+        L*k*(i2-i4)
+        b*(i1-i2+i3-i4)
+        ];
+    
+    %Now use the Euler equation for rigid body motion to obtain angular
+    %acceleration:
+    
+    omegadot=inv(I)*(actuator_action-cross(omega,I*omega));
+
+
+end
+
+%     i1=inputs(1);
+%     i2=inputs(2);
+%     i3=inputs(3);
+%     i4=inputs(4);
+%     
+%     actuator_action=[
+%         L*k*(i2-14);
+%         L*k*(i1-i3);
+%         0;
+%         ];
+%     
+%     dragtorque=[
+%         0;
+%         0;
+%         b*(i1-i2+i3-i4);
+%         ];
+%     
+%     tau=actuator_action+dragtorque;
+%     
+%     %Now use the Euler equation for rigid body motion to obtain angular
+%     %acceleration:
+%     
+%     omegadot=inv(I)*(tau-cross(omega,I*omega));
+
+
